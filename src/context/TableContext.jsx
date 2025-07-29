@@ -99,15 +99,21 @@ const tableReducer = (state, action) => {
           if (row.id === action.payload.rowId) {
             const totalChildrenValue = row.children.reduce((sum, child) => sum + child.value, 0);
             const newTotalValue = action.payload.newValue;
-            const ratio = newTotalValue / totalChildrenValue;
+            
+            const childrenWithContributions = row.children.map(child => {
+              const contributionPercentage = totalChildrenValue > 0 ? (child.value / totalChildrenValue) * 100 : 0;
+              const newValue = Math.round((newTotalValue * contributionPercentage / 100) * 100) / 100;
+              
+              return {
+                ...child,
+                value: newValue
+              };
+            });
             
             return {
               ...row,
               value: newTotalValue,
-              children: row.children.map(child => ({
-                ...child,
-                value: Math.round(child.value * ratio * 100) / 100
-              }))
+              children: childrenWithContributions
             };
           }
           return row;
@@ -122,10 +128,8 @@ const tableReducer = (state, action) => {
 export const TableProvider = ({ children }) => {
   const [state, dispatch] = useReducer(tableReducer, initialState);
 
-  // Calculate grand total
   const grandTotal = state.rows.reduce((sum, row) => sum + row.value, 0);
 
-  // Calculate variance percentage
   const calculateVariance = (currentValue, originalValue) => {
     if (originalValue === 0) return 0;
     return Math.round(((currentValue - originalValue) / originalValue) * 100 * 100) / 100;
@@ -143,7 +147,6 @@ export const TableProvider = ({ children }) => {
     dispatch({ type: 'DISTRIBUTE_TO_CHILDREN', payload: { rowId, newValue } });
   };
 
-  // Find parent row for a child
   const findParentRow = (childId) => {
     for (const row of state.rows) {
       if (row.children) {
